@@ -21,6 +21,7 @@ type PasswordServiceClient interface {
 	AddPassword(ctx context.Context, in *AddPasswordRequest, opts ...grpc.CallOption) (*AddPasswordResponse, error)
 	GetPassword(ctx context.Context, in *GetPasswordRequest, opts ...grpc.CallOption) (*GetPasswordResponse, error)
 	DeletePassword(ctx context.Context, in *DeletePasswordRequest, opts ...grpc.CallOption) (*DeletePasswordResponse, error)
+	SyncPasswords(ctx context.Context, in *SyncRequest, opts ...grpc.CallOption) (PasswordService_SyncPasswordsClient, error)
 }
 
 type passwordServiceClient struct {
@@ -58,6 +59,38 @@ func (c *passwordServiceClient) DeletePassword(ctx context.Context, in *DeletePa
 	return out, nil
 }
 
+func (c *passwordServiceClient) SyncPasswords(ctx context.Context, in *SyncRequest, opts ...grpc.CallOption) (PasswordService_SyncPasswordsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &PasswordService_ServiceDesc.Streams[0], "/gophkeeper_password.PasswordService/SyncPasswords", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &passwordServiceSyncPasswordsClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type PasswordService_SyncPasswordsClient interface {
+	Recv() (*SyncResponse, error)
+	grpc.ClientStream
+}
+
+type passwordServiceSyncPasswordsClient struct {
+	grpc.ClientStream
+}
+
+func (x *passwordServiceSyncPasswordsClient) Recv() (*SyncResponse, error) {
+	m := new(SyncResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // PasswordServiceServer is the server API for PasswordService service.
 // All implementations must embed UnimplementedPasswordServiceServer
 // for forward compatibility
@@ -65,6 +98,7 @@ type PasswordServiceServer interface {
 	AddPassword(context.Context, *AddPasswordRequest) (*AddPasswordResponse, error)
 	GetPassword(context.Context, *GetPasswordRequest) (*GetPasswordResponse, error)
 	DeletePassword(context.Context, *DeletePasswordRequest) (*DeletePasswordResponse, error)
+	SyncPasswords(*SyncRequest, PasswordService_SyncPasswordsServer) error
 	mustEmbedUnimplementedPasswordServiceServer()
 }
 
@@ -80,6 +114,9 @@ func (UnimplementedPasswordServiceServer) GetPassword(context.Context, *GetPassw
 }
 func (UnimplementedPasswordServiceServer) DeletePassword(context.Context, *DeletePasswordRequest) (*DeletePasswordResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeletePassword not implemented")
+}
+func (UnimplementedPasswordServiceServer) SyncPasswords(*SyncRequest, PasswordService_SyncPasswordsServer) error {
+	return status.Errorf(codes.Unimplemented, "method SyncPasswords not implemented")
 }
 func (UnimplementedPasswordServiceServer) mustEmbedUnimplementedPasswordServiceServer() {}
 
@@ -148,6 +185,27 @@ func _PasswordService_DeletePassword_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PasswordService_SyncPasswords_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SyncRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(PasswordServiceServer).SyncPasswords(m, &passwordServiceSyncPasswordsServer{stream})
+}
+
+type PasswordService_SyncPasswordsServer interface {
+	Send(*SyncResponse) error
+	grpc.ServerStream
+}
+
+type passwordServiceSyncPasswordsServer struct {
+	grpc.ServerStream
+}
+
+func (x *passwordServiceSyncPasswordsServer) Send(m *SyncResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // PasswordService_ServiceDesc is the grpc.ServiceDesc for PasswordService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -168,6 +226,12 @@ var PasswordService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _PasswordService_DeletePassword_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "SyncPasswords",
+			Handler:       _PasswordService_SyncPasswords_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "password.proto",
 }

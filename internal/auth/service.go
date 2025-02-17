@@ -24,18 +24,15 @@ func NewAuthService(db *sql.DB) *AuthService {
 
 // Register регистрирует пользователя
 func (s *AuthService) Register(ctx context.Context, req *pbAuth.RegisterRequest) (*pbAuth.RegisterResponse, error) {
-	// Проверка уникальности
 	if s.userExists(req.Username) {
 		return nil, errors.New("пользователь уже существует")
 	}
 
-	// Хешируем пароль
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
 	}
 
-	// Записываем пользователя в базу
 	_, err = s.db.Exec(`
 		INSERT INTO users (username, password_hash) 
 		VALUES ($1, $2)
@@ -59,12 +56,10 @@ func (s *AuthService) Login(ctx context.Context, req *pbAuth.LoginRequest) (*pbA
 		return nil, err
 	}
 
-	// Сравним пароль
 	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(req.Password)); err != nil {
 		return nil, errors.New("неверный пароль")
 	}
 
-	// Генерируем токен
 	token, err := jwt.GenerateToken(req.Username)
 	if err != nil {
 		return nil, err
@@ -82,6 +77,5 @@ func (s *AuthService) userExists(username string) bool {
 
 // Logout — заглушка для завершения сессии
 func (s *AuthService) Logout(ctx context.Context, req *pbAuth.LogoutRequest) (*pbAuth.LogoutResponse, error) {
-	// Пока просто возвращаем сообщение
 	return &pbAuth.LogoutResponse{Message: "Выход выполнен"}, nil
 }
