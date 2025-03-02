@@ -1,35 +1,44 @@
 package config
 
 import (
-	"flag"
 	"os"
 )
 
-// Config содержит настройки приложения
+// Config структура для хранения настроек сервера
 type Config struct {
-	DatabaseDSN string
 	ServerAddr  string
-	ClientAddr  string
+	DatabaseDSN string
+	EnableTLS   bool
+	TLSCertFile string
+	TLSKeyFile  string
+	AESKey      string
 }
 
-// LoadConfig загружает конфигурацию из флагов или переменных окружения
-func LoadConfig() Config {
-	dsn := flag.String("db_dsn", getEnv("DATABASE_DSN", "postgres://postgres:password@localhost:5432/gophkeeper?sslmode=disable"), "Database DSN")
-	serverAddr := flag.String("server_addr", getEnv("SERVER_ADDR", ":50051"), "gRPC server address")
-	clientAddr := flag.String("client_addr", getEnv("CLIENT_ADDR", "localhost:50051"), "gRPC client address")
-
-	flag.Parse()
-
-	return Config{
-		DatabaseDSN: *dsn,
-		ServerAddr:  *serverAddr,
-		ClientAddr:  *clientAddr,
+// LoadConfig загружает конфигурацию из .env или переменных окружения
+func LoadConfig() *Config {
+	return &Config{
+		ServerAddr:  getEnv("SERVER_ADDR", ":50051"),
+		DatabaseDSN: getEnv("DATABASE_DSN", "postgres://user:password@localhost:5432/gophkeeper?sslmode=disable"),
+		EnableTLS:   getEnvAsBool("ENABLE_TLS", false),
+		TLSCertFile: getEnv("TLS_CERT_FILE", ""),
+		TLSKeyFile:  getEnv("TLS_KEY_FILE", ""),
+		AESKey:      getEnv("AES_KEY", "abcdefghijklmnopqrstuvwxyz123456"),
 	}
 }
 
+// getEnv возвращает строковое значение из окружения или значение по умолчанию
 func getEnv(key, defaultValue string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
+	}
+	return defaultValue
+}
+
+// getEnvAsBool получает переменную окружения как bool
+func getEnvAsBool(name string, defaultValue bool) bool {
+	valStr := getEnv(name, "")
+	if valStr == "true" || valStr == "1" {
+		return true
 	}
 	return defaultValue
 }

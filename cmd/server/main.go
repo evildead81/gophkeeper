@@ -4,15 +4,18 @@ import (
 	"log"
 	"net"
 
-	"github.com/evildead81/gophkeeper/internal/auth"
-	"github.com/evildead81/gophkeeper/internal/password"
+	"github.com/evildead81/gophkeeper/internal/repository"
+	"github.com/evildead81/gophkeeper/internal/service"
 	"github.com/evildead81/gophkeeper/pkg/config"
 	"github.com/evildead81/gophkeeper/pkg/db"
+	"github.com/evildead81/gophkeeper/pkg/session"
 
 	pbAuth "github.com/evildead81/gophkeeper/api/auth"
-	pbPassword "github.com/evildead81/gophkeeper/api/password"
+	pbFile "github.com/evildead81/gophkeeper/api/file"
+	pbSecureData "github.com/evildead81/gophkeeper/api/secure_data"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 func main() {
@@ -24,13 +27,30 @@ func main() {
 	}
 	defer conn.Close()
 
-	grpcServer := grpc.NewServer()
+	sessionManager := session.NewSessionManager()
 
-	authService := auth.NewAuthService(conn)
+	userRepo := repository.NewUserRepository(conn)
+	secureDataRepo := repository.NewSecureDataRepository(conn)
+	fileRepo := repository.NewFileRepository(conn)
+
+	authService := service.NewAuthService(userRepo, sessionManager)
+	secureDataService := service.NewSecureDataService(secureDataRepo, userRepo, sessionManager)
+	fileService := service.NewFileService(fileRepo, userRepo, sessionManager)
+
+	var opts []grpc.ServerOption
+	if cfg.EnableTLS {
+		creds, err := credentials.NewServerTLSFromFile(cfg.TLSCertFile, cfg.TLSKeyFile)
+		if err != nil {
+			log.Fatalf("Ошибка загрузки TLS-сертификата: %v", err)
+		}
+		opts = append(opts, grpc.Creds(creds))
+	}
+
+	grpcServer := grpc.NewServer(opts...)
+
 	pbAuth.RegisterAuthServiceServer(grpcServer, authService)
-
-	passwordService := password.NewPasswordService(conn)
-	pbPassword.RegisterPasswordServiceServer(grpcServer, passwordService)
+	pbSecureData.RegisterSecureDataServiceServer(grpcServer, secureDataService)
+	pbFile.RegisterFileServiceServer(grpcServer, fileService)
 
 	listener, err := net.Listen("tcp", cfg.ServerAddr)
 	if err != nil {

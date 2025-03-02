@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package gophkeeper_file;
+
+service FileService {
+  rpc UploadFile(stream UploadFileRequest) returns (UploadFileResponse);
+  rpc DownloadFile(DownloadFileRequest) returns (stream DownloadFileResponse);
+}
+
+message UploadFileRequest {
+  string token = 1;
+  string filename = 2;
+  bytes chunk = 3;  // Отправка файла по частям
+}
+
+message UploadFileResponse {
+  string file_id = 1;
+}
+
+message DownloadFileRequest {
+  string token = 1;
+  string file_id = 2;
+}
+
+message DownloadFileResponse {
+  bytes chunk = 1;
+}
