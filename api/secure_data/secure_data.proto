@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package gophkeeper_securedata;
+
+service SecureDataService {
+  rpc AddSecureData(AddSecureDataRequest) returns (AddSecureDataResponse);
+  rpc GetSecureData(GetSecureDataRequest) returns (GetSecureDataResponse);
+  rpc DeleteSecureData(DeleteSecureDataRequest) returns (DeleteSecureDataResponse);
+  rpc SyncSecureData(SyncRequest) returns (stream SyncResponse);
+}
+
+message AddSecureDataRequest {
+  string token = 1;
+  string data_type = 2;  // "password", "text", "binary", "card"
+  string data = 3;
+  string meta_info = 4;
+}
+
+message AddSecureDataResponse {
+  string message = 1;
+}
+
+message GetSecureDataRequest {
+  string token = 1;
+  string data_type = 2;
+}
+
+message GetSecureDataResponse {
+  repeated SecureData items = 1;
+}
+
+message SecureData {
+  string id = 1;
+  string data = 2;
+  string meta_info = 3;
+}
+
+message DeleteSecureDataRequest {
+  string token = 1;
+  string id = 2;
+}
+
+message DeleteSecureDataResponse {
+  string message = 1;
+}
+
+message SyncRequest {
+  string token = 1;
+}
+
+message SyncResponse {
+  string id = 1;
+  string data_type = 2;
+  string data = 3;
+  string meta_info = 4;
+  string action = 5;
+}
